@@ -1,0 +1,655 @@
+﻿diff --git a/src/api/sites.ts b/src/api/sites.ts
+index ddf577c..a402da2 100644
+--- a/src/api/sites.ts
++++ b/src/api/sites.ts
+@@ -60,6 +60,28 @@ export interface AdminOverview {
+   recentSites: Site[]
+ }
+ 
++export interface Level2Category {
++  name: string
++  total: number
++}
++
++export interface Level1Category {
++  name: string
++  total: number
++  children: Level2Category[]
++}
++
++export interface NavigationResponse {
++  categories: Level1Category[]
++  sites: Site[]
++}
++
++export interface CategoryOptions {
++  level1Options: string[]
++  level2Options: string[]
++  level2ByLevel1: Record<string, string[]>
++}
++
+ const api = axios.create({
+   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+   timeout: 10000
+@@ -106,6 +128,16 @@ export const fetchSites = async (): Promise<Site[]> => {
+   return data
+ }
+ 
++export const fetchNavigation = async (): Promise<NavigationResponse> => {
++  const { data } = await api.get<NavigationResponse>('/navigation')
++  return data
++}
++
++export const fetchCategoryOptions = async (): Promise<CategoryOptions> => {
++  const { data } = await api.get<CategoryOptions>('/categories')
++  return data
++}
++
+ export const fetchSiteById = async (id: number): Promise<Site | undefined> => {
+   try {
+     const { data } = await api.get<Site>(`/sites/${id}`)
+@@ -146,6 +178,11 @@ export const fetchAdminSites = async (status?: string): Promise<Site[]> => {
+   return data
+ }
+ 
++export const fetchAdminCategoryOptions = async (): Promise<CategoryOptions> => {
++  const { data } = await api.get<CategoryOptions>('/admin/categories')
++  return data
++}
++
+ export const createAdminSite = async (payload: SiteSubmissionPayload & { status?: 'draft' | 'approved' | 'pending' }): Promise<Site> => {
+   const { data } = await api.post<Site>('/admin/sites', {
+     ...buildSitePayload(payload),
+diff --git a/src/components/LayoutHeader.vue b/src/components/LayoutHeader.vue
+index 638f878..880aa6c 100644
+--- a/src/components/LayoutHeader.vue
++++ b/src/components/LayoutHeader.vue
+@@ -1,4 +1,5 @@
+ <script setup lang="ts">
++import { computed } from 'vue'
+ import { Search, User, Compass, Newspaper, Cpu, BookOpen } from 'lucide-vue-next'
+ import { useNavigationStore } from '../store/navigation'
+ import { useRouter } from 'vue-router'
+@@ -6,17 +7,33 @@ import { useRouter } from 'vue-router'
+ const store = useNavigationStore()
+ const router = useRouter()
+ 
++const iconMap: Record<string, typeof Compass> = {
++  'AI 瀹搞儱鍙?: Compass,
++  'AI宸ュ叿': Compass,
++  'AI 鐠у嫯顔?: Newspaper,
++  'AI璧勮': Newspaper,
++  '閹绘劗銇氱拠?': Cpu,
++  '鎻愮ず璇?: Cpu,
++  '閹存垹娈戦弬鍥╃彿': BookOpen,
++  '鎴戠殑鏂囩珷': BookOpen
++}
++
++const level1Items = computed(() =>
++  store.level1Categories.map((item) => ({
++    name: item.name,
++    icon: iconMap[item.name] || Compass
++  }))
++)
++
+ const handleLevel1Click = (name: string) => {
+   store.$patch({ activeLevel1: name, searchQuery: '' })
+   router.push('/')
+ }
+ 
+-const level1Items = [
+-  { name: 'AI 宸ュ叿', icon: Compass },
+-  { name: 'AI 璧勮', icon: Newspaper },
+-  { name: '鎻愮ず璇?, icon: Cpu },
+-  { name: '鎴戠殑鏂囩珷', icon: BookOpen } // For custom articles
+-]
++const resetHomeCategory = () => {
++  store.activeLevel1 = store.level1Categories[0]?.name || ''
++  store.searchQuery = ''
++}
+ 
+ const handleSearch = (e: Event) => {
+   const target = e.target as HTMLInputElement
+@@ -26,20 +43,15 @@ const handleSearch = (e: Event) => {
+ 
+ <template>
+   <header class="min-h-[4rem] flex flex-col xl:flex-row xl:items-center justify-between px-4 md:px-6 bg-white dark:bg-black border-b-4 border-black dark:border-term-muted shadow-neo-sm py-2 md:py-3 gap-3 xl:gap-4">
+-    
+-    <!-- Left Section: Logo + Nav -->
+     <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-6 w-full xl:w-auto shrink-0">
+-      <!-- Top Row on Mobile (Logo + Auth) -->
+       <div class="flex items-center justify-between w-full md:w-auto shrink-0">
+-        <!-- Logo area -->
+-        <router-link to="/" @click="store.activeLevel1 = 'AI 宸ュ叿'; store.searchQuery = ''" class="flex items-center gap-1.5 md:gap-2 group cursor-pointer shrink-0">
++        <router-link to="/" @click="resetHomeCategory" class="flex items-center gap-1.5 md:gap-2 group cursor-pointer shrink-0">
+           <div class="w-7 h-7 md:w-10 md:h-10 bg-neo-accent dark:bg-term-primary border-2 md:border-4 border-black dark:border-black flex items-center justify-center -rotate-2 group-hover:rotate-0 transition-transform">
+-            <span class="font-black text-[10px] md:text-sm text-white dark:text-black">瀵艰埅</span>
++            <span class="font-black text-[10px] md:text-sm text-white dark:text-black">鐎佃壈鍩?/span>
+           </div>
+-          <h1 class="text-lg md:text-2xl font-black uppercase tracking-tighter dark:text-term-primary">AI 瀵艰埅</h1>
++          <h1 class="text-lg md:text-2xl font-black uppercase tracking-tighter dark:text-term-primary">AI 鐎佃壈鍩?/h1>
+         </router-link>
+ 
+-        <!-- Mobile User Icon -->
+         <div class="flex items-center gap-1.5 shrink-0 md:hidden">
+           <router-link to="/login" class="w-8 h-8 flex items-center justify-center border-2 border-black dark:border-term-muted bg-white dark:bg-black hover:bg-neo-muted dark:hover:bg-term-muted transition-colors shadow-[2px_2px_0px_0px_#000] dark:shadow-none active:translate-y-0.5 active:translate-x-0.5 active:shadow-none rounded-sm">
+             <User class="w-3.5 h-3.5 dark:text-term-primary" :stroke-width="3" />
+@@ -47,32 +59,29 @@ const handleSearch = (e: Event) => {
+         </div>
+       </div>
+ 
+-      <!-- Level 1 Navigation -->
+       <nav class="flex items-center gap-1.5 md:gap-4 overflow-x-auto no-scrollbar md:pr-4 pb-1 md:pb-0 w-full md:w-max whitespace-nowrap">
+-        <button 
+-          v-for="item in level1Items" 
++        <button
++          v-for="item in level1Items"
+           :key="item.name"
+           @click="handleLevel1Click(item.name)"
+           :class="[
+             'flex items-center gap-1 px-2 py-1 md:px-4 md:py-2 text-[11px] md:text-base font-bold uppercase transition-transform shrink-0',
+-            store.activeLevel1 === item.name 
+-              ? 'bg-neo-secondary dark:bg-term-primary dark:text-black border-2 md:border-4 border-black dark:border-term-primary shadow-[2px_2px_0px_0px_#000] md:shadow-[4px_4px_0px_0px_#000] -translate-y-0.5 md:-translate-y-1' 
++            store.activeLevel1 === item.name
++              ? 'bg-neo-secondary dark:bg-term-primary dark:text-black border-2 md:border-4 border-black dark:border-term-primary shadow-[2px_2px_0px_0px_#000] md:shadow-[4px_4px_0px_0px_#000] -translate-y-0.5 md:-translate-y-1'
+               : 'border-2 md:border-[4px] border-transparent hover:border-black dark:hover:border-term-primary opacity-70 hover:opacity-100'
+           ]"
+         >
+-          <component :is="item.icon" class="w-3.5 h-3.5 md:w-5 md:h-5" :stroke-width="store.activeLevel1 === item.name ? 3 : 2"/>
++          <component :is="item.icon" class="w-3.5 h-3.5 md:w-5 md:h-5" :stroke-width="store.activeLevel1 === item.name ? 3 : 2" />
+           {{ item.name }}
+         </button>
+       </nav>
+     </div>
+ 
+-    <!-- Right Section: PC Global Search & Auth -->
+     <div class="hidden md:flex flex-row items-center justify-between xl:justify-end gap-4 w-full xl:w-auto shrink-0 mt-2 xl:mt-0">
+-      <!-- PC Global Search -->
+       <div class="relative w-full max-w-sm xl:max-w-xs group shadow-neo-sm xl:shadow-none">
+-        <input 
+-          type="text" 
+-          placeholder="鎼滅储..." 
++        <input
++          type="text"
++          placeholder="閹兼粎鍌?.."
+           :value="store.searchQuery"
+           @input="handleSearch"
+           class="w-full h-10 md:h-10 pl-10 pr-4 text-sm md:text-base font-bold uppercase bg-white dark:bg-black border-[3px] md:border-4 border-black dark:border-term-muted focus:bg-neo-secondary dark:focus:border-term-primary dark:focus:ring-1 dark:focus:ring-term-primary focus:shadow-neo-sm focus:outline-none transition-colors"
+@@ -80,13 +89,12 @@ const handleSearch = (e: Event) => {
+         <Search class="absolute left-3 top-2.5 w-5 h-5 text-black dark:text-term-muted group-focus-within:text-black dark:group-focus-within:text-term-primary" :stroke-width="3" />
+       </div>
+ 
+-      <!-- Auth & External Links -->
+       <div class="flex items-center gap-2 md:gap-4 shrink-0">
+         <router-link to="/friend-link" class="flex text-sm h-10 items-center font-bold hover:underline opacity-80 cursor-pointer">
+-          鍙嬮摼鐢宠
++          閸欏鎽奸悽瀹狀嚞
+         </router-link>
+         <router-link to="/submit" class="flex btn-primary text-sm h-10 items-center">
+-          鎻愪氦缃戠珯
++          閹绘劒姘︾純鎴犵彲
+         </router-link>
+         <router-link to="/login" class="w-10 h-10 flex items-center justify-center border-[3px] md:border-4 bg-white dark:bg-black hover:bg-neo-muted dark:hover:bg-term-muted transition-colors shadow-neo-sm active:translate-y-1 active:translate-x-1 active:shadow-none">
+           <User class="w-5 h-5 dark:text-term-primary" :stroke-width="3" />
+diff --git a/src/store/navigation.ts b/src/store/navigation.ts
+index 5bfbc08..bcd95f5 100644
+--- a/src/store/navigation.ts
++++ b/src/store/navigation.ts
+@@ -1,94 +1,112 @@
+ import { defineStore } from 'pinia'
+-import { ref, computed, watch } from 'vue'
+-import { fetchSites, type Site } from '../api/sites'
++import { computed, ref, watch } from 'vue'
++import { fetchNavigation, type NavigationResponse, type Site } from '../api/sites'
+ 
+ export const useNavigationStore = defineStore('navigation', () => {
+-  const sites = ref<Site[]>([])
++  const navigation = ref<NavigationResponse>({
++    categories: [],
++    sites: []
++  })
+   const isLoading = ref(false)
+-  
+-  // Active Category Selection
+-  const activeLevel1 = ref('AI 宸ュ叿')
+-  const activeLevel2 = ref('鏂囨湰鐢熸垚')
+-  
+-  // Search
++  const activeLevel1 = ref('')
++  const activeLevel2 = ref('')
+   const searchQuery = ref('')
++  const isScrollingByClick = ref(false)
+ 
+-  // Fetch Action
+-  const loadSites = async () => {
+-    isLoading.value = true
+-    try {
+-      sites.value = await fetchSites()
+-      // Optional: Initialize default active targets based on data
+-    } finally {
+-      isLoading.value = false
+-    }
+-  }
++  const sites = computed(() => navigation.value.sites)
++  const level1Categories = computed(() => navigation.value.categories)
+ 
+-  // Getters for nested data
+   const filteredSites = computed(() => {
+-    let result = []
++    let result: Site[] = []
++
+     if (searchQuery.value) {
+       const q = searchQuery.value.toLowerCase()
+-      result = sites.value.filter(s => 
+-        s.name.toLowerCase().includes(q) || 
+-        s.description.toLowerCase().includes(q) ||
+-        s.tags.some(t => t.toLowerCase().includes(q))
++      result = sites.value.filter((site) =>
++        site.name.toLowerCase().includes(q) ||
++        site.description.toLowerCase().includes(q) ||
++        site.tags.some((tag) => tag.toLowerCase().includes(q))
+       )
+     } else {
+-      result = sites.value.filter(s => s.level1 === activeLevel1.value)
++      result = sites.value.filter((site) => site.level1 === activeLevel1.value)
+     }
+ 
+-    // Recommended first, then sort by sortOrder ascending
+     return [...result].sort((a, b) => {
+       const aRec = a.isRecommended ? 1 : 0
+       const bRec = b.isRecommended ? 1 : 0
+-      
+       if (aRec !== bRec) {
+-        return bRec - aRec // 1 comes before 0
++        return bRec - aRec
+       }
+-      
+-      const aSort = a.sortOrder ?? 0
+-      const bSort = b.sortOrder ?? 0
+-      return aSort - bSort
++      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+     })
+   })
+ 
+-  // Derive level 2 menu items dynamically based on filtered sites group
+-  const level2Categories = computed(() => {
+-    return Object.keys(sitesGroupedByLevel2.value)
+-  })
++  const sitesGroupedByLevel2 = computed(() => {
++    const grouped: Record<string, Site[]> = {}
+ 
+-  // Auto-select first Level 2 when Level 1 changes
+-  watch(activeLevel1, () => {
+-    if (level2Categories.value.length > 0) {
+-      activeLevel2.value = level2Categories.value[0]
+-    } else {
+-      activeLevel2.value = ''
++    filteredSites.value.forEach((site) => {
++      const level2 = site.level2 || '鏈垎绫?
++      if (!grouped[level2]) {
++        grouped[level2] = []
++      }
++      grouped[level2].push(site)
++    })
++
++    if (searchQuery.value) {
++      return grouped
+     }
+-  })
+ 
+-  // Structure filtered sites by Level 2 for the Content Area to show all at once
+-  const sitesGroupedByLevel2 = computed(() => {
+-    const grouped: Record<string, Site[]> = {}
+-    
+-    // Always use all filtered sites for the current Level 1 (or search results)
+-    const targets = filteredSites.value
+-
+-    targets.forEach(site => {
+-      // Group by Level 2 to match exactly with Sidebar
+-      if (!grouped[site.level2]) {
+-        grouped[site.level2] = []
++    const ordered: Record<string, Site[]> = {}
++    level2Categories.value.forEach((level2) => {
++      if (grouped[level2]) {
++        ordered[level2] = grouped[level2]
+       }
+-      grouped[site.level2].push(site)
+     })
+-    return grouped
++    return ordered
+   })
+ 
+-  // Flag to temporarily disable scroll-spy when clicking sidebar
+-  const isScrollingByClick = ref(false)
++  const level2Categories = computed(() => {
++    if (searchQuery.value) {
++      return Object.keys(sitesGroupedByLevel2.value)
++    }
++    const currentLevel1 = level1Categories.value.find((item) => item.name === activeLevel1.value)
++    return currentLevel1?.children.map((child) => child.name) || []
++  })
++
++  const syncActiveCategories = () => {
++    const firstLevel1 = level1Categories.value[0]?.name || ''
++    if (!activeLevel1.value || !level1Categories.value.some((item) => item.name === activeLevel1.value)) {
++      activeLevel1.value = firstLevel1
++    }
++
++    if (!level2Categories.value.includes(activeLevel2.value)) {
++      activeLevel2.value = level2Categories.value[0] || ''
++    }
++  }
++
++  const loadSites = async () => {
++    isLoading.value = true
++    try {
++      navigation.value = await fetchNavigation()
++      syncActiveCategories()
++    } finally {
++      isLoading.value = false
++    }
++  }
++
++  watch(level1Categories, () => {
++    syncActiveCategories()
++  }, { deep: true })
++
++  watch(activeLevel1, () => {
++    if (!searchQuery.value) {
++      activeLevel2.value = level2Categories.value[0] || ''
++    }
++  })
+ 
+   return {
++    navigation,
+     sites,
++    level1Categories,
+     isLoading,
+     activeLevel1,
+     activeLevel2,
+diff --git a/src/views/Submit.vue b/src/views/Submit.vue
+index 3ca17e9..fb537bc 100644
+--- a/src/views/Submit.vue
++++ b/src/views/Submit.vue
+@@ -1,9 +1,9 @@
+ <script setup lang="ts">
+-import { ref } from 'vue'
++import { computed, onMounted, ref } from 'vue'
+ import LayoutHeader from '../components/LayoutHeader.vue'
+ import FooterLinks from '../components/FooterLinks.vue'
+ import { Toast } from '../utils/toast'
+-import { submitSite, type Site } from '../api/sites'
++import { fetchCategoryOptions, submitSite, type CategoryOptions, type Site } from '../api/sites'
+ 
+ const formData = ref<Partial<Site>>({
+   type: 'site',
+@@ -15,6 +15,26 @@ const formData = ref<Partial<Site>>({
+ })
+ 
+ const isSubmitting = ref(false)
++const categoryOptions = ref<CategoryOptions>({
++  level1Options: [],
++  level2Options: [],
++  level2ByLevel1: {}
++})
++
++const availableLevel2Options = computed(() => {
++  return categoryOptions.value.level2ByLevel1[formData.value.level1 || ''] || categoryOptions.value.level2Options
++})
++
++onMounted(async () => {
++  try {
++    categoryOptions.value = await fetchCategoryOptions()
++    if (!formData.value.level1) {
++      formData.value.level1 = categoryOptions.value.level1Options[0] || ''
++    }
++  } catch {
++    // Keep the form usable when metadata loading fails.
++  }
++})
+ 
+ const submitForm = async () => {
+   if (!formData.value.name || !formData.value.url) {
+@@ -38,7 +58,7 @@ const submitForm = async () => {
+       type: 'site',
+       name: '',
+       url: '',
+-      level1: '',
++      level1: categoryOptions.value.level1Options[0] || '',
+       level2: '',
+       description: ''
+     }
+@@ -56,7 +76,7 @@ const submitForm = async () => {
+     <main class="flex-1 container mx-auto max-w-3xl py-8 md:py-12 px-4 md:px-6">
+       <div class="flex items-end justify-between mb-8">
+         <h1 class="text-3xl md:text-5xl font-black uppercase tracking-tighter -rotate-1 dark:text-term-primary">鎻愪氦鏀跺綍</h1>
+-        <p class="font-bold opacity-60 text-sm hidden md:block dark:text-term-secondary">娆㈣繋鎻愪氦浼樿川鐨?AI 宸ュ叿鎴栫綉绔?/p>
++        <p class="font-bold opacity-60 text-sm hidden md:block dark:text-term-secondary">娆㈣繋鎻愪氦浼樿川 AI 宸ュ叿鎴栫綉绔?/p>
+       </div>
+ 
+       <form @submit.prevent="submitForm" class="bg-white dark:bg-black p-4 md:p-8 border-4 border-black dark:border-term-muted shadow-[4px_4px_0px_0px_#000] md:shadow-[8px_8px_0px_0px_#000] dark:shadow-none flex flex-col gap-4 md:gap-6">
+@@ -74,30 +94,25 @@ const submitForm = async () => {
+ 
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+           <label class="flex flex-col gap-2 font-bold uppercase text-sm md:text-base dark:text-term-primary">
+-            鎵€灞炲垎绫?+            鎵€灞炰竴绾у垎绫?             <input v-model="formData.level1" list="submit-level1" class="h-12 md:h-14 border-2 md:border-4 border-black dark:border-term-muted px-4 font-bold bg-white dark:bg-black dark:text-term-primary focus:bg-neo-secondary dark:focus:border-term-primary outline-none transition-colors" placeholder="閫夋嫨鎴栬緭鍏ヤ竴绾у垎绫? />
+             <datalist id="submit-level1">
+-              <option value="AI 宸ュ叿" />
+-              <option value="AI 璧勮" />
+-              <option value="鎻愮ず璇? />
++              <option v-for="level1 in categoryOptions.level1Options" :key="level1" :value="level1" />
+             </datalist>
+           </label>
+ 
+           <label class="flex flex-col gap-2 font-bold uppercase text-sm md:text-base dark:text-term-primary">
+-            缁嗗垎棰嗗煙
++            鎵€灞炰簩绾у垎绫?             <input v-model="formData.level2" list="submit-level2" class="h-12 md:h-14 border-2 md:border-4 border-black dark:border-term-muted px-4 font-bold bg-white dark:bg-black dark:text-term-primary focus:bg-neo-secondary dark:focus:border-term-primary outline-none transition-colors" placeholder="閫夋嫨鎴栬緭鍏ヤ簩绾у垎绫? />
+             <datalist id="submit-level2">
+-              <option value="鏂囨湰鐢熸垚" />
+-              <option value="鍥惧儚鐢熸垚" />
+-              <option value="缂栫▼杈呭姪" />
+-              <option value="琛屼笟鏂伴椈" />
++              <option v-for="level2 in availableLevel2Options" :key="level2" :value="level2" />
+             </datalist>
+           </label>
+         </div>
+ 
+         <label class="flex flex-col gap-2 font-bold uppercase text-sm md:text-base dark:text-term-primary">
+           绠€瑕佷粙缁?-          <textarea v-model="formData.description" rows="3" class="border-2 md:border-4 border-black dark:border-term-muted p-4 font-bold bg-white dark:bg-black dark:text-term-primary focus:bg-neo-secondary dark:focus:border-term-primary outline-none resize-none transition-colors" placeholder="绠€鍗曟弿杩拌宸ュ叿鐨勫姛鑳藉拰鐗硅壊..."></textarea>
++          <textarea v-model="formData.description" rows="3" class="border-2 md:border-4 border-black dark:border-term-muted p-4 font-bold bg-white dark:bg-black dark:text-term-primary focus:bg-neo-secondary dark:focus:border-term-primary outline-none resize-none transition-colors" placeholder="绠€鍗曟弿杩拌宸ュ叿鐨勫姛鑳藉拰鐗圭偣..." />
+         </label>
+ 
+         <button :disabled="isSubmitting" type="submit" class="h-12 md:h-14 px-6 md:px-8 mt-4 bg-neo-accent dark:bg-term-primary border-[3px] md:border-4 border-black dark:border-black text-white dark:text-black font-black uppercase tracking-widest text-sm md:text-lg hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_#000] dark:hover:shadow-[0_0_15px_rgba(51,255,0,0.5)] active:translate-y-0.5 active:shadow-none transition-all self-start disabled:opacity-60 disabled:cursor-not-allowed">
+diff --git a/src/views/admin/CreateContent.vue b/src/views/admin/CreateContent.vue
+index 3e4240e..14b8a0f 100644
+--- a/src/views/admin/CreateContent.vue
++++ b/src/views/admin/CreateContent.vue
+@@ -1,9 +1,9 @@
+ <script setup lang="ts">
+-import { ref } from 'vue'
++import { computed, onMounted, ref } from 'vue'
+ import { Toast } from '../../utils/toast'
+ import { QuillEditor } from '@vueup/vue-quill'
+ import '@vueup/vue-quill/dist/vue-quill.snow.css'
+-import { createAdminSite, type Site } from '../../api/sites'
++import { createAdminSite, fetchAdminCategoryOptions, type CategoryOptions, type Site } from '../../api/sites'
+ 
+ const formData = ref<Partial<Site>>({
+   type: 'site',
+@@ -11,6 +11,7 @@ const formData = ref<Partial<Site>>({
+   url: '',
+   level1: '',
+   level2: '',
++  level3: '',
+   description: '',
+   content: '',
+   isRecommended: false,
+@@ -18,6 +19,41 @@ const formData = ref<Partial<Site>>({
+ })
+ 
+ const isSubmitting = ref(false)
++const categoryOptions = ref<CategoryOptions>({
++  level1Options: [],
++  level2Options: [],
++  level2ByLevel1: {}
++})
++
++const availableLevel2Options = computed(() => {
++  return categoryOptions.value.level2ByLevel1[formData.value.level1 || ''] || categoryOptions.value.level2Options
++})
++
++onMounted(async () => {
++  try {
++    categoryOptions.value = await fetchAdminCategoryOptions()
++    if (!formData.value.level1) {
++      formData.value.level1 = categoryOptions.value.level1Options[0] || ''
++    }
++  } catch {
++    // Keep manual input available even if metadata loading fails.
++  }
++})
++
++const resetForm = () => {
++  formData.value = {
++    type: formData.value.type || 'site',
++    name: '',
++    url: '',
++    level1: categoryOptions.value.level1Options[0] || '',
++    level2: '',
++    level3: '',
++    description: '',
++    content: '',
++    isRecommended: false,
++    sortOrder: 0
++  }
++}
+ 
+ const submitForm = async () => {
+   if (!formData.value.name) {
+@@ -25,6 +61,11 @@ const submitForm = async () => {
+     return
+   }
+ 
++  if (formData.value.type === 'site' && !formData.value.url) {
++    Toast.error('绔欑偣绫诲瀷闇€瑕佸～鍐?URL')
++    return
++  }
++
+   isSubmitting.value = true
+   try {
+     await createAdminSite({
+@@ -42,17 +83,7 @@ const submitForm = async () => {
+     })
+ 
+     Toast.success(`淇濆瓨鎴愬姛\n绫诲瀷: ${formData.value.type === 'site' ? '瀵艰埅绔欑偣' : '鑷畾涔夋枃绔?}\n鏍囬: ${formData.value.name}`)
+-    formData.value = {
+-      type: formData.value.type,
+-      name: '',
+-      url: '',
+-      level1: '',
+-      level2: '',
+-      description: '',
+-      content: '',
+-      isRecommended: false,
+-      sortOrder: 0
+-    }
++    resetForm()
+   } catch {
+     Toast.error('淇濆瓨澶辫触锛岃妫€鏌ョ櫥褰曠姸鎬佹垨鍚庣鏈嶅姟')
+   } finally {
+@@ -84,76 +115,60 @@ const submitForm = async () => {
+           <input v-model="formData.name" required type="text" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="濡傦細Cursor" />
+         </label>
+ 
+-        <label v-if="formData.type === 'site'" class="flex flex-col gap-2 font-bold select-none">
+-          瀹樻柟缃戝潃 (URL)
+-          <input v-model="formData.url" required type="url" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="https://" />
+-        </label>
+-        <label v-else class="flex flex-col gap-2 font-bold select-none">
+-          鏂囩珷鏉ユ簮 (鍙€?URL)
+-          <input v-model="formData.url" type="url" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="https://" />
++        <label class="flex flex-col gap-2 font-bold select-none">
++          {{ formData.type === 'site' ? '瀹樻柟缃戠珯 (URL)' : '鏂囩珷鏉ユ簮 (鍙€?URL)' }}
++          <input v-model="formData.url" :required="formData.type === 'site'" type="url" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="https://" />
+         </label>
+       </div>
+ 
+-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
++      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+         <label class="flex flex-col gap-2 font-bold select-none">
+-          涓€绾у垎绫?(Level 1)
+-          <input
+-            v-model="formData.level1"
+-            list="level1-options"
+-            class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded"
+-            placeholder="閫夋嫨鎴栬緭鍏ユ柊鍒嗙被"
+-          />
++          涓€绾у垎绫?+          <input v-model="formData.level1" list="level1-options" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="閫夋嫨鎴栬緭鍏ユ柊鍒嗙被" />
+           <datalist id="level1-options">
+-            <option value="AI 宸ュ叿" />
+-            <option value="AI 璧勮" />
+-            <option value="鎻愮ず璇? />
+-            <option value="鎴戠殑鏂囩珷" />
++            <option v-for="level1 in categoryOptions.level1Options" :key="level1" :value="level1" />
+           </datalist>
+         </label>
+ 
+         <label class="flex flex-col gap-2 font-bold select-none">
+-          浜岀骇鍒嗙被 (Level 2)
+-          <input
+-            v-model="formData.level2"
+-            list="level2-options"
+-            class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded"
+-            placeholder="閫夋嫨鎴栬緭鍏ユ柊鍒嗙被"
+-          />
++          浜岀骇鍒嗙被
++          <input v-model="formData.level2" list="level2-options" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="閫夋嫨鎴栬緭鍏ユ柊鍒嗙被" />
+           <datalist id="level2-options">
+-            <option value="鏂囨湰鐢熸垚" />
+-            <option value="鍥惧儚鐢熸垚" />
+-            <option value="缂栫▼杈呭姪" />
+-            <option value="琛屼笟鏂伴椈" />
+-            <option value="鎶€鏈暀绋? />
++            <option v-for="level2 in availableLevel2Options" :key="level2" :value="level2" />
+           </datalist>
+         </label>
++
++        <label class="flex flex-col gap-2 font-bold select-none">
++          涓夌骇鍒嗙被
++          <input v-model="formData.level3" type="text" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="鍙€? />
++        </label>
+       </div>
+ 
+       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+         <label class="flex items-center gap-2 font-bold select-none cursor-pointer h-12">
+           <input v-model="formData.isRecommended" type="checkbox" class="w-5 h-5 border-[3px] border-black dark:border-term-primary accent-black dark:accent-black outline-none" />
+-          璁剧疆涓烘帹鑽愰」 (灏嗕紭鍏堝睍绀?
++          璁句负鎺ㄨ崘椤?         </label>
+ 
+         <label class="flex flex-col gap-2 font-bold select-none">
+-          鎺掑垪椤哄簭 (鏁板瓧锛屽缓璁嚜鍔ㄩ€掑)
+-          <input v-model="formData.sortOrder" type="number" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="榛樿 0锛屾暟瀛楄秺灏忚秺闈犲墠" />
++          鎺掑簭椤哄簭
++          <input v-model="formData.sortOrder" type="number" class="h-12 border border-gray-400 dark:border-term-muted px-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded" placeholder="榛樿 0锛岃秺灏忚秺闈犲墠" />
+         </label>
+       </div>
+ 
+       <label class="flex flex-col gap-2 font-bold select-none">
+-        绠€瑕佹弿杩?/ 鐭瘎
+-        <textarea v-model="formData.description" rows="3" class="border border-gray-400 dark:border-term-muted p-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded resize-none" placeholder="涓€鍙ヨ瘽浠嬬粛..."></textarea>
++        绠€瑕佹弿杩?+        <textarea v-model="formData.description" rows="3" class="border border-gray-400 dark:border-term-muted p-4 bg-transparent outline-none focus:border-neo-accent dark:focus:border-term-primary rounded resize-none" placeholder="涓€鍙ヨ瘽浠嬬粛..." />
+       </label>
+ 
+       <div v-if="formData.type === 'article'" class="flex flex-col gap-2">
+-        <span class="font-bold select-none">鏂囩珷姝ｆ枃 (鏀寔瀵屾枃鏈?</span>
++        <span class="font-bold select-none">鏂囩珷姝ｆ枃</span>
+         <div class="border border-gray-400 dark:border-term-muted rounded bg-white dark:bg-black overflow-hidden relative" style="min-height: 300px;">
+           <QuillEditor
+             v-model:content="formData.content"
+             contentType="html"
+             theme="snow"
+-            placeholder="鍦ㄦ杈撳叆鎮ㄧ殑姝ｆ枃鍐呭..."
++            placeholder="鍦ㄦ杈撳叆姝ｆ枃鍐呭..."
+           />
+         </div>
+       </div>

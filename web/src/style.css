@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Day Theme: Neo-Brutalism */
+  html.light, html {
+    @apply bg-neo-bg text-neo-fg font-neo;
+  }
+  
+  /* Night Theme: Terminal CLI */
+  html.dark {
+    @apply bg-term-bg text-term-primary font-term;
+    /* CRT Scanline Overlay */
+    position: relative;
+  }
+
+  html.dark::after {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+      rgba(18, 16, 16, 0) 50%,
+      rgba(0, 0, 0, 0.25) 50%
+    ), linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.06),
+      rgba(0, 255, 0, 0.02),
+      rgba(0, 0, 255, 0.06)
+    );
+    z-index: 2;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+  }
+}
+
+@layer components {
+  /* Common utilities for Neo-Brutalism */
+  .neo-btn {
+    @apply h-12 px-6 border-black font-bold text-sm uppercase tracking-wide
+           shadow-neo-sm active:translate-x-[2px] active:translate-y-[2px] 
+           active:shadow-none transition-all duration-100;
+  }
+  
+  .neo-card {
+    @apply bg-white border-black rounded-none shadow-neo-md 
+           hover:-translate-y-1 hover:shadow-neo-lg transition-transform duration-200;
+  }
+
+  /* Common utilities for Terminal CLI */
+  .term-btn {
+    @apply h-12 px-6 border-term-muted border text-term-primary font-term uppercase
+           hover:bg-term-primary hover:text-black hover:border-term-primary
+           transition-colors duration-100;
+  }
+  
+  .term-card {
+    @apply bg-black border-term-muted border
+           shadow-term-glow;
+  }
+
+  /* Dual Theme Component Adapters */
+  .btn-primary {
+    @apply dark:term-btn neo-btn bg-neo-accent border-4;
+  }
+  .btn-secondary {
+    @apply dark:term-btn neo-btn bg-neo-secondary border-4;
+  }
+  .nav-card {
+    @apply dark:term-card neo-card border-4;
+  }
+}
+
+/* Base resets & utilities */
+* {
+  @apply border-black dark:border-term-muted;
+}
+html.dark * {
+  border-color: #1f521f;
+}
+html.light * {
+  border-color: #000000;
+}
+
+/* =========================================
+   Fluent 2 Theme Overrides
+   ========================================= */
+html.fluent * {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+}
+
+html.fluent .rounded-none {
+  border-radius: 6px !important;
+}
+
+/* Base Gradient Background */
+html.fluent .min-h-screen {
+  background: linear-gradient(135deg, #f0f6ff 0%, #e1eaf8 100%) !important;
+}
+
+/* Acrylic Cards and Containers */
+html.fluent .bg-white, html.fluent .bg-neo-bg {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(24px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+}
+
+html.fluent .bg-neo-secondary {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Fluent Buttons (Primary) */
+html.fluent .bg-neo-accent {
+  background: #005fb8 !important; /* Fluent Blue */
+  color: white !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+html.fluent .neo-accent {
+  color: #005fb8 !important;
+}
+
+html.fluent button.bg-neo-accent:hover {
+  background: #0060ba !important;
+}
+
+html.fluent .text-white {
+  color: #ffffff !important;
+}
+
+html.fluent .text-neo-fg {
+  color: #1f1f1f !important;
+}
+
+/* Borders and Shadows overrides */
+html.fluent .border-\[3px\],
+html.fluent .border-4,
+html.fluent .border-2 {
+  border-width: 1px !important;
+}
+
+html.fluent .shadow-neo-sm, 
+html.fluent .shadow-neo-md, 
+html.fluent .shadow-neo-lg, 
+html.fluent [class*="shadow-["] {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Discard brutalist translate interactions and replace with Fluent elevation */
+html.fluent .hover\:-translate-y-1:hover {
+  transform: translateY(-2px) !important; /* Gentle hover */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.fluent .active\:translate-y-0\.5:active,
+html.fluent .active\:translate-x-0\.5:active,
+html.fluent .active\:translate-y-1:active,
+html.fluent .active\:translate-x-1:active,
+html.fluent .active\:translate-x-\[2px\]:active,
+html.fluent .active\:translate-y-\[2px\]:active {
+  transform: scale(0.97) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Text and outlines */
+html.fluent h1, html.fluent h2, html.fluent h3, html.fluent span, html.fluent p {
+  border-color: transparent !important; /* Keep text clean */
+}
+
+html.fluent input:focus {
+  border-bottom: 2px solid #005fb8 !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}

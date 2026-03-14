@@ -1,0 +1,308 @@
+import axios from 'axios'
+
+export type ContentType = 'site' | 'article'
+export type ContentFormat = 'html' | 'markdown' | 'text'
+
+export interface Site {
+  id: number
+  name: string
+  url: string
+  logo: string
+  description: string
+  level1: string
+  level2: string
+  level3: string
+  tags: string[]
+  isRecommended?: boolean
+  sortOrder?: number
+  type?: ContentType
+  content?: string
+  contentFormat?: ContentFormat
+  status?: 'draft' | 'approved' | 'pending'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SiteSubmissionPayload {
+  name: string
+  url: string
+  logo?: string
+  description?: string
+  level1?: string
+  level2?: string
+  level3?: string
+  tags?: string[] | string
+  isRecommended?: boolean
+  sortOrder?: number
+  type?: ContentType
+  content?: string
+  contentFormat?: ContentFormat
+  submitterEmail?: string
+}
+
+export interface FriendLinkPayload {
+  siteName: string
+  siteUrl: string
+  siteDesc?: string
+  contactEmail: string
+}
+
+export interface FriendLink {
+  id: number
+  siteName: string
+  siteUrl: string
+  siteDesc: string
+  contactEmail: string
+  status: 'pending' | 'approved' | 'rejected'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LoginPayload {
+  username: string
+  password: string
+}
+
+export interface LoginResponse {
+  accessToken: string
+  tokenType: string
+  username: string
+}
+
+export interface AdminOverview {
+  totalSites: number
+  totalCategories: number
+  pendingSubmissions: number
+  recentSites: Site[]
+}
+
+export interface Level2Category {
+  name: string
+  total: number
+}
+
+export interface Level1Category {
+  name: string
+  total: number
+  children: Level2Category[]
+}
+
+export interface NavigationResponse {
+  categories: Level1Category[]
+  sites: Site[]
+}
+
+export interface CategoryOptions {
+  level1Options: string[]
+  level2Options: string[]
+  level2ByLevel1: Record<string, string[]>
+}
+
+export interface AdminCategoryNode {
+  id: number
+  name: string
+  total: number
+  sortOrder: number
+  parentId: number | null
+  children: AdminCategoryNode[]
+}
+
+export interface AdminCategory {
+  id: number
+  name: string
+  sortOrder: number
+  parentId: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminCategoryPayload {
+  name: string
+  sortOrder?: number
+  parentId?: number | null
+}
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  timeout: 10000
+})
+
+const ADMIN_TOKEN_KEY = 'nav_admin_token'
+
+export const getAdminToken = () => localStorage.getItem(ADMIN_TOKEN_KEY)
+export const setAdminToken = (token: string) => localStorage.setItem(ADMIN_TOKEN_KEY, token)
+export const clearAdminToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY)
+export const isAdminLoggedIn = () => Boolean(getAdminToken())
+
+api.interceptors.request.use((config) => {
+  const token = getAdminToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+const normalizeTags = (tags?: string[] | string) => {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags.filter(Boolean)
+  return tags.split(',').map(item => item.trim()).filter(Boolean)
+}
+
+const buildSitePayload = (payload: Partial<SiteSubmissionPayload>) => ({
+  name: payload.name || '',
+  url: payload.url || '',
+  logo: payload.logo || '',
+  description: payload.description || '',
+  level1: payload.level1 || '',
+  level2: payload.level2 || '',
+  level3: payload.level3 || '',
+  tags: normalizeTags(payload.tags),
+  isRecommended: Boolean(payload.isRecommended),
+  sortOrder: Number(payload.sortOrder || 0),
+  type: payload.type || 'site',
+  content: payload.content || '',
+  contentFormat: payload.contentFormat || 'html'
+})
+
+export const fetchSites = async (): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>('/sites')
+  return data
+}
+
+export const fetchNavigation = async (): Promise<NavigationResponse> => {
+  const { data } = await api.get<NavigationResponse>('/navigation')
+  return data
+}
+
+export const fetchCategoryOptions = async (): Promise<CategoryOptions> => {
+  const { data } = await api.get<CategoryOptions>('/categories')
+  return data
+}
+
+export const fetchSiteById = async (type: ContentType, id: number): Promise<Site | undefined> => {
+  try {
+    const { data } = await api.get<Site>(`/contents/${type}/${id}`)
+    return data
+  } catch {
+    return undefined
+  }
+}
+
+export const submitSite = async (payload: SiteSubmissionPayload): Promise<Site> => {
+  const { data } = await api.post<Site>('/submissions/sites', {
+    ...buildSitePayload(payload),
+    submitterEmail: payload.submitterEmail || null
+  })
+  return data
+}
+
+export const submitFriendLink = async (payload: FriendLinkPayload) => {
+  const { data } = await api.post<FriendLink>('/friend-links', payload)
+  return data
+}
+
+export const fetchFriendLinks = async (): Promise<FriendLink[]> => {
+  const { data } = await api.get<FriendLink[]>('/friend-links')
+  return data
+}
+
+export const loginAdmin = async (payload: LoginPayload): Promise<LoginResponse> => {
+  const { data } = await api.post<LoginResponse>('/auth/login', payload)
+  setAdminToken(data.accessToken)
+  return data
+}
+
+export const fetchAdminOverview = async (): Promise<AdminOverview> => {
+  const { data } = await api.get<AdminOverview>('/admin/overview')
+  return data
+}
+
+export const fetchAdminSites = async (status?: string): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>('/admin/sites', {
+    params: status ? { status } : undefined
+  })
+  return data
+}
+
+export const fetchAdminCategoryOptions = async (): Promise<CategoryOptions> => {
+  const { data } = await api.get<CategoryOptions>('/admin/categories')
+  return data
+}
+
+export const fetchAdminCategoryTree = async (): Promise<AdminCategoryNode[]> => {
+  const { data } = await api.get<AdminCategoryNode[]>('/admin/categories/tree')
+  return data
+}
+
+export const createAdminCategory = async (payload: AdminCategoryPayload): Promise<AdminCategory> => {
+  const { data } = await api.post<AdminCategory>('/admin/categories', {
+    name: payload.name,
+    sortOrder: Number(payload.sortOrder || 0),
+    parentId: payload.parentId ?? null
+  })
+  return data
+}
+
+export const updateAdminCategory = async (id: number, payload: AdminCategoryPayload): Promise<AdminCategory> => {
+  const { data } = await api.put<AdminCategory>(`/admin/categories/${id}`, {
+    name: payload.name,
+    sortOrder: Number(payload.sortOrder || 0),
+    parentId: payload.parentId ?? null
+  })
+  return data
+}
+
+export const deleteAdminCategory = async (id: number, deleteRelatedContent = false): Promise<void> => {
+  await api.delete(`/admin/categories/${id}`, {
+    params: { deleteRelatedContent }
+  })
+}
+
+export const createAdminSite = async (payload: SiteSubmissionPayload & { status?: 'draft' | 'approved' | 'pending' }): Promise<Site> => {
+  const { data } = await api.post<Site>('/admin/sites', {
+    ...buildSitePayload(payload),
+    status: payload.status || 'approved'
+  })
+  return data
+}
+
+export const updateAdminSite = async (id: number, payload: SiteSubmissionPayload & { status?: 'draft' | 'approved' | 'pending' }): Promise<Site> => {
+  const { data } = await api.put<Site>(`/admin/sites/${id}`, {
+    ...buildSitePayload(payload),
+    status: payload.status || 'approved'
+  })
+  return data
+}
+
+export const deleteAdminSite = async (id: number, type: ContentType): Promise<void> => {
+  await api.delete(`/admin/sites/${id}`, {
+    params: { type }
+  })
+}
+
+export const clearAdminUncategorizedSites = async (): Promise<void> => {
+  await api.delete('/admin/sites/uncategorized')
+}
+
+export const fetchAdminFriendLinks = async (status?: string): Promise<FriendLink[]> => {
+  const { data } = await api.get<FriendLink[]>('/admin/friend-links', {
+    params: status ? { status } : undefined
+  })
+  return data
+}
+
+export const updateAdminFriendLink = async (
+  id: number,
+  status: 'pending' | 'approved' | 'rejected'
+): Promise<FriendLink> => {
+  const { data } = await api.put<FriendLink>(`/admin/friend-links/${id}`, { status })
+  return data
+}
+
+export const deleteAdminFriendLink = async (id: number): Promise<void> => {
+  await api.delete(`/admin/friend-links/${id}`)
+}
+
+export const updateAdminPassword = async (oldPass: string, newPass: string): Promise<void> => {
+  await api.put('/admin/password', { oldPass, newPass })
+}

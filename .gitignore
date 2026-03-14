@@ -1,0 +1,9 @@
+/.magi/
+/.idea/
+/.gemini/
+/release/
+/pybackground/app/__pycache__
+/pybackground/__pycache__
+/web/dist/
+/web/node_modules/
+/.gemini/
