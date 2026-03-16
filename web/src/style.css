@@ -76,6 +76,11 @@
 }
 
 /* Base resets & utilities */
+@media print {
+  .theme-toggle-btn, [data-nav-scroll], .fixed, canvas, .no-print { display: none !important; }
+  body { background: white; color: black; }
+}
+
 * {
   @apply border-black dark:border-term-muted;
 }
@@ -179,4 +184,34 @@ html.fluent h1, html.fluent h2, html.fluent h3, html.fluent span, html.fluent p 
 html.fluent input:focus {
   border-bottom: 2px solid #005fb8 !important;
   background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Fluent Theme Toggle Button */
+html.fluent .theme-toggle-btn {
+  border-width: 1px !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Scrollbar-free containers */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area for mobile bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Card stagger-in animation */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-animate-in {
+  animation: card-in 0.35s ease-out both;
 }

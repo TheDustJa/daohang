@@ -15,12 +15,20 @@ export interface Site {
   tags: string[]
   isRecommended?: boolean
   sortOrder?: number
+  clickCount?: number
+  likes?: number
+  dislikes?: number
   type?: ContentType
   content?: string
   contentFormat?: ContentFormat
   status?: 'draft' | 'approved' | 'pending'
   createdAt?: string
   updatedAt?: string
+}
+
+export interface TagInfo {
+  name: string
+  count: number
 }
 
 export interface SiteSubmissionPayload {
@@ -141,6 +149,16 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearAdminToken()
+    }
+    return Promise.reject(error)
+  }
+)
 
 const normalizeTags = (tags?: string[] | string) => {
   if (!tags) return []
@@ -305,4 +323,125 @@ export const deleteAdminFriendLink = async (id: number): Promise<void> => {
 
 export const updateAdminPassword = async (oldPass: string, newPass: string): Promise<void> => {
   await api.put('/admin/password', { oldPass, newPass })
+}
+
+export const recordClick = async (type: ContentType, id: number): Promise<number> => {
+  const { data } = await api.post<{ clickCount: number }>(`/contents/${type}/${id}/click`)
+  return data.clickCount
+}
+
+export const fetchRandomSites = async (count = 5): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>('/random', { params: { count } })
+  return data
+}
+
+export const fetchRecentSites = async (count = 10): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>('/recent', { params: { count } })
+  return data
+}
+
+export const fetchPopularSites = async (count = 10): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>('/popular', { params: { count } })
+  return data
+}
+
+export const fetchAllTags = async (): Promise<TagInfo[]> => {
+  const { data } = await api.get<TagInfo[]>('/tags')
+  return data
+}
+
+export interface CheckinResult {
+  checkinDate: string
+  streak: number
+  totalPoints: number
+  pointsEarned: number
+  isNewCheckin: boolean
+}
+
+export interface CheckinStatus {
+  checkinDate: string
+  streak: number
+  totalPoints: number
+  checkedInToday: boolean
+}
+
+export interface VoteResult {
+  likes: number
+  dislikes: number
+  userVote: string | null
+}
+
+export interface Announcement {
+  id: number
+  title: string
+  content: string
+  type: 'info' | 'warning' | 'success'
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export const doCheckin = async (fingerprint: string): Promise<CheckinResult> => {
+  const { data } = await api.post<CheckinResult>('/checkin', { fingerprint })
+  return data
+}
+
+export const getCheckinStatus = async (fingerprint: string): Promise<CheckinStatus> => {
+  const { data } = await api.get<CheckinStatus>(`/checkin/${fingerprint}`)
+  return data
+}
+
+export const voteContent = async (type: ContentType, id: number, fingerprint: string, voteType: 'like' | 'dislike'): Promise<VoteResult> => {
+  const { data } = await api.post<VoteResult>(`/contents/${type}/${id}/vote`, { fingerprint, voteType })
+  return data
+}
+
+export const getVoteStatus = async (type: ContentType, id: number, fingerprint: string): Promise<{ userVote: string | null }> => {
+  const { data } = await api.get<{ userVote: string | null }>(`/contents/${type}/${id}/vote/${fingerprint}`)
+  return data
+}
+
+export const fetchRelatedSites = async (type: ContentType, id: number, count = 6): Promise<Site[]> => {
+  const { data } = await api.get<Site[]>(`/contents/${type}/${id}/related`, { params: { count } })
+  return data
+}
+
+export const fetchAnnouncements = async (): Promise<Announcement[]> => {
+  const { data } = await api.get<Announcement[]>('/announcements')
+  return data
+}
+
+export const checkSubmissionStatus = async (name: string, url: string): Promise<any[]> => {
+  const { data } = await api.get('/submissions/status', { params: { name, url } })
+  return data
+}
+
+export interface StatsResponse {
+  totalSites: number
+  totalArticles: number
+  totalCategories: number
+  totalTags: number
+}
+
+export const fetchStats = async (): Promise<StatsResponse> => {
+  const { data } = await api.get<StatsResponse>('/stats')
+  return data
+}
+
+export interface SearchSuggestResponse {
+  sites: Site[]
+  tags: string[]
+}
+
+export const fetchSearchSuggest = async (q: string, limit = 8): Promise<SearchSuggestResponse> => {
+  const { data } = await api.get<SearchSuggestResponse>('/search/suggest', { params: { q, limit } })
+  return data
+}
+
+export const submitFeedback = async (type: 'feature' | 'bug' | 'other', content: string): Promise<void> => {
+  await api.post('/feedback', { type, content })
+}
+
+export const submitReport = async (contentType: ContentType, contentId: number, reason: string): Promise<void> => {
+  await api.post('/report', { contentType, contentId, reason })
 }

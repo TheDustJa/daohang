@@ -1,4 +1,4 @@
-﻿import { defineStore } from 'pinia'
+import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { fetchNavigation, type NavigationResponse, type Site } from '../api/sites'
 
@@ -11,13 +11,16 @@ export const useNavigationStore = defineStore('navigation', () => {
   const activeLevel1 = ref('')
   const activeLevel2 = ref('')
   const searchQuery = ref('')
+  const activeTag = ref('')
   const isScrollingByClick = ref(false)
+  const recommendedOnly = ref(false)
+  const sortBy = ref<'default' | 'click' | 'latest' | 'name'>('default')
 
   const sites = computed(() => navigation.value.sites)
   const level1Categories = computed(() => navigation.value.categories)
 
   const filteredSites = computed(() => {
-    let result: Site[] = []
+    let result: Site[]
 
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
@@ -30,7 +33,24 @@ export const useNavigationStore = defineStore('navigation', () => {
       result = sites.value.filter((site) => site.level1 === activeLevel1.value)
     }
 
-    return [...result].sort((a, b) => {
+    if (recommendedOnly.value) {
+      result = result.filter((site) => site.isRecommended)
+    }
+    if (activeTag.value) {
+      const tag = activeTag.value.toLowerCase()
+      result = result.filter((site) => site.tags?.some((t) => t.toLowerCase() === tag))
+    }
+
+    const sb = sortBy.value
+    if (sb === 'click') {
+      result = [...result].sort((a, b) => (b.clickCount ?? 0) - (a.clickCount ?? 0))
+    } else if (sb === 'latest') {
+      result = [...result].sort((a, b) => ((b.updatedAt || b.createdAt || '') > (a.updatedAt || a.createdAt || '') ? 1 : -1))
+    } else if (sb === 'name') {
+      result = [...result].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    }
+
+    if (sb === 'default') return [...result].sort((a, b) => {
       if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) {
         return (b.sortOrder ?? 0) - (a.sortOrder ?? 0)
       }
@@ -41,6 +61,7 @@ export const useNavigationStore = defineStore('navigation', () => {
       }
       return b.id - a.id
     })
+    return result
   })
 
   const sitesGroupedByLevel2 = computed(() => {
@@ -104,7 +125,9 @@ export const useNavigationStore = defineStore('navigation', () => {
     if (!searchQuery.value) {
       activeLevel2.value = level2Categories.value[0] || ''
     }
+    activeTag.value = ''
   })
+  watch(searchQuery, () => { activeTag.value = '' })
 
   return {
     navigation,
@@ -118,6 +141,9 @@ export const useNavigationStore = defineStore('navigation', () => {
     filteredSites,
     level2Categories,
     sitesGroupedByLevel2,
-    isScrollingByClick
+    isScrollingByClick,
+    recommendedOnly,
+    sortBy,
+    activeTag
   }
 })

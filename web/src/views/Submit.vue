@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-vue-next'
 import LayoutHeader from '../components/LayoutHeader.vue'
 import FooterLinks from '../components/FooterLinks.vue'
 import { Toast } from '../utils/toast'
-import { fetchCategoryOptions, submitSite, type CategoryOptions } from '../api/sites'
+import { fetchCategoryOptions, submitSite, checkSubmissionStatus, type CategoryOptions } from '../api/sites'
 
 const CUSTOM_OPTION_VALUE = '__custom__'
 
@@ -17,6 +17,30 @@ const formData = ref({
 })
 
 const isSubmitting = ref(false)
+const isCheckingStatus = ref(false)
+const statusResults = ref<any[]>([])
+const showStatusPanel = ref(false)
+const statusQuery = ref({ name: '', url: '' })
+
+const checkStatus = async () => {
+  if (!statusQuery.value.name && !statusQuery.value.url) {
+    Toast.error('请输入网站名称或网址')
+    return
+  }
+  isCheckingStatus.value = true
+  try {
+    statusResults.value = await checkSubmissionStatus(statusQuery.value.name, statusQuery.value.url)
+    showStatusPanel.value = true
+    if (statusResults.value.length === 0) {
+      Toast.info('未找到相关提交记录')
+    }
+  } catch {
+    Toast.error('查询失败')
+  } finally {
+    isCheckingStatus.value = false
+  }
+}
+
 const isCustomLevel1 = ref(false)
 const isCustomLevel2 = ref(false)
 const categoryOptions = ref<CategoryOptions>({
@@ -124,6 +148,26 @@ const submitForm = async () => {
       <p class="mb-6 text-sm md:text-base leading-7 font-medium text-black/75 dark:text-term-secondary">
         大家提交的内容优先放在“站长常用”一级分类里。导航网站千千万，真正能用的没几个，淦。本就是想整合一些优质的内容，大家一起使用，大家多多支持。
       </p>
+
+      <!-- Status Check Panel -->
+      <div class="bg-white dark:bg-[#111] p-4 md:p-6 mb-6 border-4 border-black dark:border-term-muted shadow-[4px_4px_0px_0px_#000] md:shadow-[8px_8px_0px_0px_#000] dark:shadow-none">
+        <h2 class="text-base md:text-lg font-black uppercase mb-3 dark:text-term-primary">查询审核进度</h2>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input v-model="statusQuery.name" type="text" placeholder="网站名称" class="flex-1 h-10 border-2 border-black dark:border-term-muted px-3 text-sm font-bold bg-white dark:bg-black dark:text-term-primary outline-none" />
+          <input v-model="statusQuery.url" type="text" placeholder="或输入网址" class="flex-1 h-10 border-2 border-black dark:border-term-muted px-3 text-sm font-bold bg-white dark:bg-black dark:text-term-primary outline-none" />
+          <button @click="checkStatus" :disabled="isCheckingStatus" type="button" class="h-10 px-4 bg-neo-accent dark:bg-term-primary border-2 border-black dark:border-black text-white dark:text-black font-bold text-xs uppercase shrink-0 hover:-translate-y-0.5 transition-all disabled:opacity-50">
+            {{ isCheckingStatus ? '查询中...' : '查询' }}
+          </button>
+        </div>
+        <div v-if="showStatusPanel && statusResults.length > 0" class="mt-3 space-y-2">
+          <div v-for="r in statusResults" :key="r.id" class="flex items-center justify-between py-2 px-3 border border-black/10 dark:border-term-muted/30 text-sm font-bold">
+            <span>{{ r.name }}</span>
+            <span class="px-2 py-0.5 text-[10px] font-black uppercase" :class="r.status === 'approved' ? 'bg-green-100 text-green-800' : r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'">
+              {{ r.status === 'approved' ? '已通过' : r.status === 'pending' ? '审核中' : r.status }}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <form @submit.prevent="submitForm" class="bg-white dark:bg-black p-4 md:p-8 border-4 border-black dark:border-term-muted shadow-[4px_4px_0px_0px_#000] md:shadow-[8px_8px_0px_0px_#000] dark:shadow-none flex flex-col gap-4 md:gap-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">

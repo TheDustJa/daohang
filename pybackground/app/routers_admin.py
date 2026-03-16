@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import List, Optional
 
@@ -7,13 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from .repositories import (
     build_admin_category_tree,
     clear_uncategorized_sites,
+    create_announcement,
     create_category,
     create_site,
+    delete_announcement,
     delete_friend_link,
     delete_category,
     delete_site,
     get_admin_by_username,
     get_category_options,
+    list_announcements,
     list_friend_links,
     list_sites,
     update_admin_password,
@@ -27,6 +30,7 @@ from .schemas import (
     AdminCategoryNode,
     AdminCategoryOut,
     AdminCategoryUpdate,
+    AnnouncementCreate,
     CategoryOptionsResponse,
     DeleteResponse,
     FriendLinkOut,
@@ -166,3 +170,19 @@ def update_admin_friend_link(
 def delete_admin_friend_link(friend_link_id: int, _: str = Depends(require_admin_token)) -> DeleteResponse:
     delete_friend_link(friend_link_id)
     return DeleteResponse(detail="Friend link deleted")
+
+
+@router.get("/admin/announcements")
+def get_admin_announcements(_: str = Depends(require_admin_token)):
+    return list_announcements(active_only=False)
+
+
+@router.post("/admin/announcements")
+def create_admin_announcement(payload: AnnouncementCreate, _: str = Depends(require_admin_token)):
+    return create_announcement(payload.title, payload.content, payload.type, payload.isActive)
+
+
+@router.delete("/admin/announcements/{ann_id}", response_model=DeleteResponse)
+def delete_admin_announcement(ann_id: int, _: str = Depends(require_admin_token)) -> DeleteResponse:
+    delete_announcement(ann_id)
+    return DeleteResponse(detail="Announcement deleted")

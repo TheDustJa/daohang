@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import sqlite3
@@ -45,6 +45,9 @@ SELECT
     '' AS content,
     'text' AS contentFormat,
     status,
+    COALESCE(clickCount, 0) AS clickCount,
+    COALESCE(likes, 0) AS likes,
+    COALESCE(dislikes, 0) AS dislikes,
     createdAt,
     updatedAt
 FROM sites
@@ -67,6 +70,9 @@ SELECT
     content,
     contentFormat,
     status,
+    COALESCE(clickCount, 0) AS clickCount,
+    COALESCE(likes, 0) AS likes,
+    COALESCE(dislikes, 0) AS dislikes,
     createdAt,
     updatedAt
 FROM articles
@@ -150,11 +156,15 @@ def build_union_query(status_filter: str | None) -> tuple[str, list[Any]]:
     return query, params
 
 
-def list_sites(status_filter: str | None) -> list[SiteOut]:
+def list_sites(status_filter: str | None, tag_filter: str | None = None) -> list[SiteOut]:
     query, params = build_union_query(status_filter)
     with closing(get_db()) as conn:
         rows = conn.execute(query, params).fetchall()
-    return [row_to_site(row) for row in rows]
+    result = [row_to_site(row) for row in rows]
+    if tag_filter and tag_filter.strip():
+        t = tag_filter.strip().lower()
+        result = [s for s in result if any(t in (tg or "").lower() for tg in s.tags)]
+    return result
 
 
 def build_navigation_categories(sites: list[SiteOut]) -> list[Level1CategoryOut]:
@@ -665,6 +675,338 @@ def delete_friend_link(friend_link_id: int) -> None:
             raise HTTPException(status_code=404, detail="Friend link not found")
         conn.execute("DELETE FROM friend_links WHERE id = ?", (friend_link_id,))
         conn.commit()
+
+
+def record_click(content_type: ContentType, content_id: int) -> int:
+    table_name = "sites" if content_type == "site" else "articles"
+    with closing(get_db()) as conn:
+        conn.execute(
+            f"UPDATE {table_name} SET clickCount = clickCount + 1 WHERE id = ? AND status = 'approved'",
+            (content_id,),
+        )
+        conn.commit()
+        row = conn.execute(f"SELECT clickCount FROM {table_name} WHERE id = ?", (content_id,)).fetchone()
+    return row["clickCount"] if row else 0
+
+
+def get_random_sites(count: int = 5) -> list[SiteOut]:
+    with closing(get_db()) as conn:
+        rows = conn.execute(
+            f"""
+            SELECT * FROM (
+                {SITE_SELECT} WHERE status = 'approved'
+                UNION ALL
+                {ARTICLE_SELECT} WHERE status = 'approved'
+            ) ORDER BY RANDOM() LIMIT ?
+            """,
+            (count,),
+        ).fetchall()
+    return [row_to_site(row) for row in rows]
+
+
+def get_recent_sites(count: int = 10) -> list[SiteOut]:
+    with closing(get_db()) as conn:
+        rows = conn.execute(
+            f"""
+            SELECT * FROM (
+                {SITE_SELECT} WHERE status = 'approved'
+                UNION ALL
+                {ARTICLE_SELECT} WHERE status = 'approved'
+            ) ORDER BY createdAt DESC LIMIT ?
+            """,
+            (count,),
+        ).fetchall()
+    return [row_to_site(row) for row in rows]
+
+
+def get_popular_sites(count: int = 10) -> list[SiteOut]:
+    with closing(get_db()) as conn:
+        site_rows = conn.execute(
+            "SELECT *, 'site' AS type, '' AS content, 'text' AS contentFormat FROM sites WHERE status = 'approved' ORDER BY clickCount DESC LIMIT ?",
+            (count,),
+        ).fetchall()
+        article_rows = conn.execute(
+            "SELECT *, 'article' AS type FROM articles WHERE status = 'approved' ORDER BY clickCount DESC LIMIT ?",
+            (count,),
+        ).fetchall()
+    combined = [row_to_site(row) for row in site_rows] + [row_to_site(row) for row in article_rows]
+    combined.sort(key=lambda s: -(getattr(s, 'clickCount', 0) or 0))
+    return combined[:count]
+
+
+def get_stats() -> dict[str, Any]:
+    with closing(get_db()) as conn:
+        site_count = conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'approved'").fetchone()[0]
+        article_count = conn.execute("SELECT COUNT(*) FROM articles WHERE status = 'approved'").fetchone()[0]
+        rows = conn.execute(
+            "SELECT level1, level2 FROM sites WHERE status = 'approved' UNION SELECT level1, level2 FROM articles WHERE status = 'approved'"
+        ).fetchall()
+        cat_count = len({(r["level1"] or "", r["level2"] or "") for r in rows if (r["level1"] or "").strip() and (r["level2"] or "").strip()})
+        tags_raw = conn.execute("SELECT tags FROM sites WHERE status = 'approved' UNION ALL SELECT tags FROM articles WHERE status = 'approved'").fetchall()
+        all_tags: set[str] = set()
+        for row in tags_raw:
+            for t in json.loads(row["tags"] or "[]"):
+                if str(t).strip():
+                    all_tags.add(str(t).strip())
+        return {"totalSites": site_count, "totalArticles": article_count, "totalCategories": cat_count, "totalTags": len(all_tags)}
+
+
+def search_suggest(query: str, limit: int = 8) -> dict[str, Any]:
+    q = (query or "").strip().lower()
+    if len(q) < 1:
+        return {"sites": [], "tags": []}
+    sites: list[SiteOut] = []
+    tags_found: list[str] = []
+    all_sites = list_sites("approved")
+    for s in all_sites:
+        if q in s.name.lower():
+            sites.append(s)
+            if len(sites) >= limit:
+                break
+    tag_data = get_all_tags()
+    for t in tag_data:
+        if q in t["name"].lower():
+            tags_found.append(t["name"])
+            if len(tags_found) >= 5:
+                break
+    return {"sites": sites[:limit], "tags": tags_found}
+
+
+def create_feedback(fb_type: str, content: str) -> None:
+    if fb_type not in ("feature", "bug", "other"):
+        fb_type = "feature"
+    timestamp = now_iso()
+    with closing(get_db()) as conn:
+        conn.execute(
+            "INSERT INTO feedbacks (type, content, createdAt) VALUES (?, ?, ?)",
+            (fb_type, (content or "").strip()[:2000], timestamp),
+        )
+        conn.commit()
+
+
+def create_report(content_type: str, content_id: int, reason: str) -> None:
+    if content_type not in ("site", "article"):
+        return
+    timestamp = now_iso()
+    with closing(get_db()) as conn:
+        conn.execute(
+            "INSERT INTO reports (contentType, contentId, reason, createdAt) VALUES (?, ?, ?, ?)",
+            (content_type, content_id, (reason or "").strip()[:500], timestamp),
+        )
+        conn.commit()
+
+
+def get_all_tags() -> list[dict[str, Any]]:
+    tag_counts: dict[str, int] = defaultdict(int)
+    with closing(get_db()) as conn:
+        for table in ("sites", "articles"):
+            rows = conn.execute(f"SELECT tags FROM {table} WHERE status = 'approved'").fetchall()
+            for row in rows:
+                tags = json.loads(row["tags"] or "[]")
+                for tag in tags:
+                    tag = tag.strip()
+                    if tag:
+                        tag_counts[tag] += 1
+    return sorted(
+        [{"name": name, "count": count} for name, count in tag_counts.items()],
+        key=lambda x: -x["count"],
+    )
+
+
+def do_checkin(fingerprint: str) -> dict[str, Any]:
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    timestamp = now_iso()
+
+    with closing(get_db()) as conn:
+        existing = conn.execute(
+            "SELECT * FROM checkins WHERE fingerprint = ? AND checkinDate = ?",
+            (fingerprint, today),
+        ).fetchone()
+        if existing:
+            return {
+                "checkinDate": today,
+                "streak": existing["streak"],
+                "totalPoints": existing["totalPoints"],
+                "pointsEarned": 0,
+                "isNewCheckin": False,
+            }
+
+        prev = conn.execute(
+            "SELECT streak, totalPoints FROM checkins WHERE fingerprint = ? AND checkinDate = ?",
+            (fingerprint, yesterday),
+        ).fetchone()
+
+        streak = (prev["streak"] + 1) if prev else 1
+        base_points = 10
+        bonus = min(streak - 1, 6) * 2
+        points_earned = base_points + bonus
+        total_points = (prev["totalPoints"] if prev else 0) + points_earned
+
+        conn.execute(
+            """
+            INSERT INTO checkins (fingerprint, checkinDate, streak, totalPoints, createdAt)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (fingerprint, today, streak, total_points, timestamp),
+        )
+        conn.commit()
+
+    return {
+        "checkinDate": today,
+        "streak": streak,
+        "totalPoints": total_points,
+        "pointsEarned": points_earned,
+        "isNewCheckin": True,
+    }
+
+
+def get_checkin_status(fingerprint: str) -> dict[str, Any]:
+    from datetime import date
+    today = date.today().isoformat()
+    with closing(get_db()) as conn:
+        row = conn.execute(
+            "SELECT * FROM checkins WHERE fingerprint = ? ORDER BY checkinDate DESC LIMIT 1",
+            (fingerprint,),
+        ).fetchone()
+    if not row:
+        return {"checkinDate": "", "streak": 0, "totalPoints": 0, "checkedInToday": False}
+    return {
+        "checkinDate": row["checkinDate"],
+        "streak": row["streak"],
+        "totalPoints": row["totalPoints"],
+        "checkedInToday": row["checkinDate"] == today,
+    }
+
+
+def do_vote(fingerprint: str, content_type: ContentType, content_id: int, vote_type: str) -> dict[str, Any]:
+    table = "sites" if content_type == "site" else "articles"
+    timestamp = now_iso()
+    with closing(get_db()) as conn:
+        existing = conn.execute(
+            "SELECT voteType FROM votes WHERE fingerprint = ? AND contentType = ? AND contentId = ?",
+            (fingerprint, content_type, content_id),
+        ).fetchone()
+
+        if existing:
+            old_vote = existing["voteType"]
+            if old_vote == vote_type:
+                conn.execute(
+                    "DELETE FROM votes WHERE fingerprint = ? AND contentType = ? AND contentId = ?",
+                    (fingerprint, content_type, content_id),
+                )
+                col = "likes" if vote_type == "like" else "dislikes"
+                conn.execute(f"UPDATE {table} SET {col} = MAX(0, {col} - 1) WHERE id = ?", (content_id,))
+                user_vote = None
+            else:
+                conn.execute(
+                    "UPDATE votes SET voteType = ?, createdAt = ? WHERE fingerprint = ? AND contentType = ? AND contentId = ?",
+                    (vote_type, timestamp, fingerprint, content_type, content_id),
+                )
+                add_col = "likes" if vote_type == "like" else "dislikes"
+                sub_col = "dislikes" if vote_type == "like" else "likes"
+                conn.execute(f"UPDATE {table} SET {add_col} = {add_col} + 1, {sub_col} = MAX(0, {sub_col} - 1) WHERE id = ?", (content_id,))
+                user_vote = vote_type
+        else:
+            conn.execute(
+                "INSERT INTO votes (fingerprint, contentType, contentId, voteType, createdAt) VALUES (?, ?, ?, ?, ?)",
+                (fingerprint, content_type, content_id, vote_type, timestamp),
+            )
+            col = "likes" if vote_type == "like" else "dislikes"
+            conn.execute(f"UPDATE {table} SET {col} = {col} + 1 WHERE id = ?", (content_id,))
+            user_vote = vote_type
+
+        conn.commit()
+        row = conn.execute(f"SELECT likes, dislikes FROM {table} WHERE id = ?", (content_id,)).fetchone()
+
+    return {
+        "likes": row["likes"] if row else 0,
+        "dislikes": row["dislikes"] if row else 0,
+        "userVote": user_vote,
+    }
+
+
+def get_vote_status(fingerprint: str, content_type: str, content_id: int) -> str | None:
+    with closing(get_db()) as conn:
+        row = conn.execute(
+            "SELECT voteType FROM votes WHERE fingerprint = ? AND contentType = ? AND contentId = ?",
+            (fingerprint, content_type, content_id),
+        ).fetchone()
+    return row["voteType"] if row else None
+
+
+def list_announcements(active_only: bool = True) -> list[dict[str, Any]]:
+    with closing(get_db()) as conn:
+        if active_only:
+            rows = conn.execute("SELECT * FROM announcements WHERE isActive = 1 ORDER BY id DESC").fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM announcements ORDER BY id DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+def create_announcement(title: str, content: str, ann_type: str, is_active: bool) -> dict[str, Any]:
+    timestamp = now_iso()
+    with closing(get_db()) as conn:
+        cursor = conn.execute(
+            "INSERT INTO announcements (title, content, type, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
+            (title, content, ann_type, 1 if is_active else 0, timestamp, timestamp),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM announcements WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return dict(row)
+
+
+def delete_announcement(ann_id: int) -> None:
+    with closing(get_db()) as conn:
+        conn.execute("DELETE FROM announcements WHERE id = ?", (ann_id,))
+        conn.commit()
+
+
+def get_related_sites(content_type: ContentType, content_id: int, count: int = 6) -> list[SiteOut]:
+    site = get_site_by_id(content_id, content_type, allow_pending=False)
+    if not site:
+        return []
+    tags = site.tags
+    level2 = site.level2.strip()
+
+    with closing(get_db()) as conn:
+        rows = conn.execute(
+            f"""
+            SELECT * FROM (
+                {SITE_SELECT} WHERE status = 'approved'
+                UNION ALL
+                {ARTICLE_SELECT} WHERE status = 'approved'
+            ) WHERE id != ? OR type != ?
+            ORDER BY RANDOM()
+            """,
+            (content_id, content_type),
+        ).fetchall()
+
+    candidates = [row_to_site(row) for row in rows]
+    scored: list[tuple[float, SiteOut]] = []
+    for c in candidates:
+        if c.id == content_id and (c.type or 'site') == content_type:
+            continue
+        score = 0.0
+        common_tags = set(c.tags) & set(tags)
+        score += len(common_tags) * 3
+        if c.level2.strip() == level2:
+            score += 2
+        if score > 0:
+            scored.append((score, c))
+
+    scored.sort(key=lambda x: -x[0])
+    return [s for _, s in scored[:count]]
+
+
+def get_submission_status(name: str, url: str) -> list[dict[str, Any]]:
+    with closing(get_db()) as conn:
+        rows = conn.execute(
+            "SELECT id, name, url, status, createdAt FROM sites WHERE (name = ? OR url = ?) AND status IN ('pending', 'approved', 'draft')",
+            (name, url),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def get_admin_by_username(username: str) -> dict[str, Any] | None:

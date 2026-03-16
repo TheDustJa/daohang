@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"codefree-cursor-unlimit": {
+			"command": "node",
+			"args": [
+				"c:\\Users\\30821\\.cursor\\extensions\\codefree.codefree-cursor-unlimit-1.0.0\\dist\\mcp-server.mjs",
+				"--channel",
+				"f18581446570"
+			]
+		}
+	}
+}

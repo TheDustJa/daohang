@@ -1,0 +1,16 @@
+{
+  "name": "AI 导航站",
+  "short_name": "AI导航",
+  "description": "发现最优质的 AI 工具、平台与资讯",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFDF5",
+  "theme_color": "#FF6B6B",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

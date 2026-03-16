@@ -1,9 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { Link2 } from 'lucide-vue-next'
-import { fetchFriendLinks, type FriendLink } from '../api/sites'
+import { computed, onMounted, ref } from 'vue'
+import { Link2, Rss } from 'lucide-vue-next'
+import { fetchFriendLinks, fetchStats, type FriendLink } from '../api/sites'
+
+const props = withDefaults(defineProps<{
+  stats?: { totalSites: number; totalArticles: number; totalCategories: number; totalTags: number }
+}>(), { stats: () => ({ totalSites: 0, totalArticles: 0, totalCategories: 0, totalTags: 0 }) })
 
 const friendLinks = ref<FriendLink[]>([])
+const apiStats = ref<{ totalSites: number; totalArticles: number; totalCategories: number; totalTags: number } | null>(null)
+
+const displayStats = computed(() => {
+  const p = props.stats
+  if (p && (p.totalSites > 0 || p.totalArticles > 0)) return p
+  return apiStats.value || p
+})
 
 onMounted(async () => {
   try {
@@ -11,6 +22,9 @@ onMounted(async () => {
   } catch {
     friendLinks.value = []
   }
+  try {
+    apiStats.value = await fetchStats()
+  } catch { /* ignore */ }
 })
 </script>
 
@@ -38,6 +52,16 @@ onMounted(async () => {
       </div>
 
       <div class="flex flex-col items-center md:items-end gap-2 text-sm font-bold opacity-70">
+        <div v-if="displayStats && (displayStats.totalSites > 0 || displayStats.totalArticles > 0)" class="flex flex-wrap gap-3 justify-center md:justify-end text-xs">
+          <span>{{ displayStats.totalSites }} 工具</span>
+          <span>{{ displayStats.totalArticles }} 文章</span>
+          <span>{{ displayStats.totalCategories }} 分类</span>
+          <span>{{ displayStats.totalTags }} 标签</span>
+        </div>
+        <a href="/api/v1/rss.xml" target="_blank" rel="noreferrer" class="flex items-center gap-1 hover:underline">
+          <Rss class="w-3.5 h-3.5" :stroke-width="2.5" />
+          RSS 订阅
+        </a>
         <div>© 2026 AI Navigation Pro-Max. All rights reserved.</div>
         <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" class="hover:underline flex items-center gap-1">
           <span>京 ICP 备 XXXXXX 号-1</span>

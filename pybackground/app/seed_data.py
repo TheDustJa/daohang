@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any
 
@@ -84,5 +84,59 @@ SEED_ARTICLES: list[dict[str, Any]] = [
         "status": "approved",
         "contentFormat": "markdown",
         "content": "# 导航站文章展示兼容示例\n\n这篇文章用于验证三类内容展示能力：\n\n- Markdown 文章\n- 富文本 HTML 文章\n- 纯文本说明\n\n## 当前改造点\n\n1. 后台编辑器升级为更完整的组件。\n2. 前台详情页支持文章阅读，而不是只跳转站点。\n3. 数据层将文章与导航链接拆分存储。\n\n> 这是一条示例引用，用于检查样式。\n\n```ts\nconst contentType = 'article'\nconst format = 'markdown'\n```\n\n你现在看到的就是插入到数据库中的模拟文章内容。\n",
-    }
+    },
+    {
+        "name": "2026 年最值得关注的 10 个 AI 编程工具",
+        "url": "",
+        "logo": "编",
+        "description": "盘点 2026 年最热门的 AI 辅助编程工具，从代码补全到全栈开发，帮你选择最适合的 AI 编程助手。",
+        "level1": "站内文章",
+        "level2": "技术评测",
+        "tags": ["AI编程", "效率工具", "开发者"],
+        "isRecommended": True,
+        "sortOrder": 18,
+        "status": "approved",
+        "contentFormat": "markdown",
+        "content": "# 2026 年最值得关注的 10 个 AI 编程工具\n\nAI 编程工具正在重塑软件开发流程。以下是我们精选的 10 个工具：\n\n## 1. GitHub Copilot\n微软旗下的 AI 编程助手，深度集成 VS Code 和 JetBrains。\n- 支持多语言代码补全\n- 上下文感知，理解整个项目\n- 月费 $10 起\n\n## 2. Cursor\n基于 VS Code 的 AI-first 编辑器，支持多模型切换。\n- 内置 Agent 模式，自动完成复杂任务\n- 支持 Claude、GPT 等多模型\n- 代码审查和重构建议\n\n## 3. Claude Code\nAnthropic 推出的终端编程助手。\n- 直接在终端中使用\n- 擅长大型项目重构\n- 上下文窗口超长\n\n## 4. Windsurf\nCodeium 团队打造的 AI IDE。\n- Cascade 功能实现多步骤编程\n- 免费版功能丰富\n\n## 5. Bolt.new\n浏览器中的 AI 全栈开发平台。\n- 对话式创建完整应用\n- 一键部署到云端\n\n## 总结\n\n选择工具时需考虑：\n1. **语言支持** - 是否支持你的主力语言\n2. **集成度** - 与现有工作流的兼容性\n3. **性价比** - 免费额度和付费方案\n\n> 最好的工具是能融入你工作流的工具，而不是功能最多的那个。\n",
+    },
+    {
+        "name": "Prompt Engineering 完全指南：从入门到精通",
+        "url": "",
+        "logo": "提",
+        "description": "系统学习提示词工程，掌握与 AI 高效对话的核心技巧，包含大量实战案例和模板。",
+        "level1": "站内文章",
+        "level2": "教程指南",
+        "tags": ["提示词", "ChatGPT", "教程"],
+        "isRecommended": True,
+        "sortOrder": 17,
+        "status": "approved",
+        "contentFormat": "markdown",
+        "content": "# Prompt Engineering 完全指南\n\n## 什么是提示词工程？\n\n提示词工程（Prompt Engineering）是设计和优化输入给 AI 模型的文本，以获得最佳输出的技术。\n\n## 核心原则\n\n### 1. 明确具体\n```\n❌ 帮我写个文章\n✅ 请用专业但易懂的语气，写一篇 800 字的技术博客，主题是 Vue 3 组合式 API 的优势\n```\n\n### 2. 提供上下文\n```\n✅ 我是一个有 3 年经验的前端开发者，正在将项目从 Vue 2 迁移到 Vue 3...\n```\n\n### 3. 分步骤指导\n```\n✅ 请按以下步骤完成：\n   1. 先分析现有代码结构\n   2. 列出需要修改的文件\n   3. 逐个文件给出修改方案\n```\n\n## 高级技巧\n\n### Few-shot Learning\n提供几个示例，让 AI 理解你期望的输出格式。\n\n### Chain of Thought\n要求 AI 展示思考过程：\"请一步步思考...\"。\n\n### Role Playing\n为 AI 设定角色：\"你是一个资深的 DevOps 工程师...\"。\n\n## 常见误区\n\n1. **过于简短** - 信息不足导致输出不准确\n2. **过于冗长** - 关键信息被淹没\n3. **歧义表达** - AI 可能理解偏差\n\n> 好的提示词 = 清晰的目标 + 足够的上下文 + 明确的格式要求\n",
+    },
+    {
+        "name": "AI 绘画工具横评：Midjourney vs DALL-E 3 vs Stable Diffusion",
+        "url": "",
+        "logo": "画",
+        "description": "详细对比三大主流 AI 绘画工具的画质、速度、价格和适用场景，帮你找到最合适的创作伙伴。",
+        "level1": "站内文章",
+        "level2": "技术评测",
+        "tags": ["AI绘画", "Midjourney", "DALL-E", "Stable Diffusion"],
+        "sortOrder": 16,
+        "status": "approved",
+        "contentFormat": "markdown",
+        "content": "# AI 绘画工具横评\n\n## 测试维度\n\n| 维度 | Midjourney v6 | DALL-E 3 | SD XL |\n|------|:---:|:---:|:---:|\n| 画质 | ★★★★★ | ★★★★ | ★★★★ |\n| 速度 | ★★★★ | ★★★★★ | ★★★ |\n| 可控性 | ★★★ | ★★★★ | ★★★★★ |\n| 价格 | $10/月 | 含GPT Plus | 免费 |\n\n## Midjourney v6\n\n**优点：**\n- 审美品质业界最高\n- 自然光影和构图极佳\n- 社区氛围活跃\n\n**缺点：**\n- 需要 Discord 操作\n- 精确控制较难\n- 必须付费\n\n## DALL-E 3\n\n**优点：**\n- 文字理解能力最强\n- 与 ChatGPT 深度集成\n- 生成速度快\n\n**缺点：**\n- 风格偏\"干净\"\n- 安全限制较严格\n\n## Stable Diffusion XL\n\n**优点：**\n- 完全免费开源\n- 本地运行，隐私性好\n- ControlNet 精确控制\n- 海量模型和 LoRA\n\n**缺点：**\n- 需要 GPU\n- 学习成本高\n\n## 选择建议\n\n- **设计师/创意人员** → Midjourney\n- **文案/营销** → DALL-E 3\n- **开发者/极客** → Stable Diffusion\n",
+    },
+    {
+        "name": "从零搭建个人 AI 知识库：RAG 实战教程",
+        "url": "",
+        "logo": "知",
+        "description": "手把手教你用 RAG 技术搭建个人 AI 知识库，让 AI 基于你的文档回答问题。",
+        "level1": "站内文章",
+        "level2": "教程指南",
+        "tags": ["RAG", "知识库", "LangChain", "教程"],
+        "sortOrder": 15,
+        "status": "approved",
+        "contentFormat": "markdown",
+        "content": "# 从零搭建个人 AI 知识库\n\n## 什么是 RAG？\n\nRAG（Retrieval-Augmented Generation）是一种让 AI 模型基于外部知识源回答问题的技术。\n\n## 技术栈\n\n- **框架**：LangChain\n- **向量数据库**：ChromaDB\n- **Embedding**：OpenAI text-embedding-3-small\n- **LLM**：GPT-4 / Claude\n\n## 实现步骤\n\n### Step 1: 文档处理\n\n```python\nfrom langchain.document_loaders import DirectoryLoader\nfrom langchain.text_splitter import RecursiveCharacterTextSplitter\n\nloader = DirectoryLoader('./docs', glob='**/*.md')\ndocs = loader.load()\n\nsplitter = RecursiveCharacterTextSplitter(\n    chunk_size=1000,\n    chunk_overlap=200\n)\nchunks = splitter.split_documents(docs)\n```\n\n### Step 2: 向量化存储\n\n```python\nfrom langchain.vectorstores import Chroma\nfrom langchain.embeddings import OpenAIEmbeddings\n\ndb = Chroma.from_documents(\n    chunks,\n    OpenAIEmbeddings(),\n    persist_directory='./chroma_db'\n)\n```\n\n### Step 3: 问答链\n\n```python\nfrom langchain.chains import RetrievalQA\nfrom langchain.llms import ChatOpenAI\n\nqa = RetrievalQA.from_chain_type(\n    llm=ChatOpenAI(model='gpt-4'),\n    retriever=db.as_retriever(search_kwargs={'k': 3})\n)\n\nresult = qa.run('如何配置 Nginx 反向代理？')\n```\n\n## 优化技巧\n\n1. **调整 chunk_size** - 太小丢失上下文，太大匹配不精确\n2. **使用 Reranker** - 二次排序提升相关性\n3. **Hybrid Search** - 结合关键词和向量搜索\n\n> RAG 是当前最实用的 AI 应用模式之一，几乎每个企业都能从中受益。\n",
+    },
 ]

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import sqlite3
@@ -108,7 +108,74 @@ def init_db() -> None:
         ensure_column(cursor, "articles", "contentFormat", "TEXT NOT NULL DEFAULT 'html'")
         ensure_column(cursor, "articles", "legacySiteId", "INTEGER")
         ensure_column(cursor, "friend_links", "updatedAt", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(cursor, "sites", "clickCount", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(cursor, "articles", "clickCount", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(cursor, "sites", "likes", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(cursor, "sites", "dislikes", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(cursor, "articles", "likes", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(cursor, "articles", "dislikes", "INTEGER NOT NULL DEFAULT 0")
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS checkins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fingerprint TEXT NOT NULL,
+                checkinDate TEXT NOT NULL,
+                streak INTEGER NOT NULL DEFAULT 1,
+                totalPoints INTEGER NOT NULL DEFAULT 0,
+                createdAt TEXT NOT NULL,
+                UNIQUE(fingerprint, checkinDate)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS votes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fingerprint TEXT NOT NULL,
+                contentType TEXT NOT NULL,
+                contentId INTEGER NOT NULL,
+                voteType TEXT NOT NULL,
+                createdAt TEXT NOT NULL,
+                UNIQUE(fingerprint, contentType, contentId)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT 'info',
+                isActive INTEGER NOT NULL DEFAULT 1,
+                createdAt TEXT NOT NULL,
+                updatedAt TEXT NOT NULL
+            )
+            """
+        )
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_legacy_site_id ON articles(legacySiteId)")
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedbacks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL DEFAULT 'feature',
+                content TEXT NOT NULL DEFAULT '',
+                createdAt TEXT NOT NULL
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                contentType TEXT NOT NULL,
+                contentId INTEGER NOT NULL,
+                reason TEXT NOT NULL DEFAULT '',
+                createdAt TEXT NOT NULL
+            )
+            """
+        )
         seed_admin(cursor)
         migrate_legacy_articles(cursor)
         seed_sites(cursor)

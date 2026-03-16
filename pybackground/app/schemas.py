@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
@@ -41,6 +41,9 @@ class SiteOut(SiteBase):
 
     id: int
     status: str
+    clickCount: int = 0
+    likes: int = 0
+    dislikes: int = 0
     createdAt: str
     updatedAt: str
 
@@ -69,6 +72,17 @@ class FriendLinkOut(FriendLinkCreate):
 
 class FriendLinkUpdate(BaseModel):
     status: Literal["pending", "approved", "rejected"]
+
+
+class FeedbackCreate(BaseModel):
+    type: Literal["feature", "bug", "other"] = "feature"
+    content: str = Field(default="", max_length=2000)
+
+
+class ReportCreate(BaseModel):
+    contentType: Literal["site", "article"]
+    contentId: int
+    reason: str = Field(default="", max_length=500)
 
 
 class LoginRequest(BaseModel):
@@ -155,3 +169,43 @@ class AdminCategoryNode(BaseModel):
 
 class DeleteResponse(BaseModel):
     detail: str
+
+
+class CheckinRequest(BaseModel):
+    fingerprint: str = Field(min_length=1, max_length=128)
+
+
+class CheckinResponse(BaseModel):
+    checkinDate: str
+    streak: int
+    totalPoints: int
+    pointsEarned: int
+    isNewCheckin: bool
+
+
+class VoteRequest(BaseModel):
+    fingerprint: str = Field(min_length=1, max_length=128)
+    voteType: Literal["like", "dislike"]
+
+
+class VoteResponse(BaseModel):
+    likes: int
+    dislikes: int
+    userVote: Optional[str] = None
+
+
+class AnnouncementOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    type: str
+    isActive: bool
+    createdAt: str
+    updatedAt: str
+
+
+class AnnouncementCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(default="")
+    type: Literal["info", "warning", "success"] = "info"
+    isActive: bool = True
